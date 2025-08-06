@@ -1,26 +1,15 @@
 <?php
 session_start();
-
-// Conexión a PostgreSQL con variables de entorno (Render/Railway)
-$conn = pg_connect("host=" . getenv("DB_HOST") . 
-                   " dbname=" . getenv("DB_NAME") . 
-                   " user=" . getenv("DB_USER") . 
-                   " password=" . getenv("DB_PASS") . 
-                   " port=" . getenv("DB_PORT"));
-
-if (!$conn) {
-    http_response_code(500);
-    echo "Error de conexión: " . pg_last_error();
-    exit;
-}
+require 'db.php';
 
 if (isset($_POST['producto_id'])) {
     $producto_id = (int)$_POST['producto_id'];
 
-    // Consulta segura con parámetros
-    $resultado = pg_query_params($conn, "SELECT * FROM productos WHERE id = $1", [$producto_id]);
+    $stmt = $pdo->prepare("SELECT * FROM productos WHERE id = ?");
+    $stmt->execute([$producto_id]);
+    $producto = $stmt->fetch();
 
-    if ($producto = pg_fetch_assoc($resultado)) {
+    if ($producto) {
         if (!isset($_SESSION['carrito'])) {
             $_SESSION['carrito'] = [];
         }
@@ -50,4 +39,3 @@ if (isset($_POST['producto_id'])) {
 
 http_response_code(400);
 echo "Producto no válido";
-?>

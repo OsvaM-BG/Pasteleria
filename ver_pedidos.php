@@ -1,8 +1,13 @@
 <?php
-$conexion = new mysqli("localhost", "root", "", "pasteleria");
+// Conexión a PostgreSQL con variables de entorno
+$conn = pg_connect("host=" . getenv("DB_HOST") . 
+                   " dbname=" . getenv("DB_NAME") . 
+                   " user=" . getenv("DB_USER") . 
+                   " password=" . getenv("DB_PASS") . 
+                   " port=" . getenv("DB_PORT"));
 
-if ($conexion->connect_error) {
-    die("Error en la conexión: " . $conexion->connect_error);
+if (!$conn) {
+    die("Error en la conexión: " . pg_last_error());
 }
 
 // Variables de filtro
@@ -12,16 +17,21 @@ $metodo_pago = isset($_GET['metodo_pago']) ? $_GET['metodo_pago'] : '';
 
 // Construir consulta SQL con filtros
 $sql = "SELECT * FROM pedidos WHERE 1=1";
+$params = [];
+$i = 1;
 
 if ($fecha_inicio && $fecha_fin) {
-    $sql .= " AND DATE(fecha) BETWEEN '$fecha_inicio' AND '$fecha_fin'";
+    $sql .= " AND DATE(fecha) BETWEEN $" . $i++ . " AND $" . $i++;
+    $params[] = $fecha_inicio;
+    $params[] = $fecha_fin;
 }
 if ($metodo_pago) {
-    $sql .= " AND metodo_pago = '$metodo_pago'";
+    $sql .= " AND metodo_pago = $" . $i++;
+    $params[] = $metodo_pago;
 }
 
 $sql .= " ORDER BY fecha DESC";
-$resultado = $conexion->query($sql);
+$resultado = pg_query_params($conn, $sql, $params);
 ?>
 
 <!DOCTYPE html>
@@ -64,23 +74,21 @@ $resultado = $conexion->query($sql);
         </form>
     </div>
 
-    <?php if ($resultado->num_rows > 0): ?>
-        <?php while ($pedido = $resultado->fetch_assoc()): ?>
+    <?php if (pg_num_rows($resultado) > 0): ?>
+        <?php while ($pedido = pg_fetch_assoc($resultado)): ?>
             <table>
                 <tr>
                     <th>ID Pedido</th>
                     <th>Cliente</th>
                     <th>Email</th>
                     <th>Método de Pago</th>
-                    <th>Total</th>
                     <th>Fecha</th>
                 </tr>
                 <tr>
                     <td><?php echo $pedido['id']; ?></td>
-                    <td><?php echo $pedido['nombre_cliente']; ?></td>
-                    <td><?php echo $pedido['email_cliente']; ?></td>
+                    <td><?php echo htmlspecialchars($pedido['cliente_nombre']); ?></td>
+                    <td><?php echo htmlspecialchars($pedido['cliente_email']); ?></td>
                     <td><?php echo $pedido['metodo_pago']; ?></td>
-                    <td>$<?php echo number_format($pedido['total'], 2); ?> MXN</td>
                     <td><?php echo $pedido['fecha']; ?></td>
                 </tr>
             </table>
@@ -91,22 +99,20 @@ $resultado = $conexion->query($sql);
                     <tr>
                         <th>Producto</th>
                         <th>Cantidad</th>
-                        <th>Subtotal</th>
                     </tr>
                     <?php
                     $pedido_id = $pedido['id'];
-                    $detalle_sql = "SELECT pd.cantidad, pd.subtotal, p.nombre 
+                    $detalle_sql = "SELECT pd.cantidad, p.nombre 
                                     FROM pedido_detalle pd 
                                     JOIN productos p ON pd.producto_id = p.id 
-                                    WHERE pd.pedido_id = $pedido_id";
-                    $detalle_resultado = $conexion->query($detalle_sql);
+                                    WHERE pd.pedido_id = $1";
+                    $detalle_resultado = pg_query_params($conn, $detalle_sql, [$pedido_id]);
 
-                    while ($detalle = $detalle_resultado->fetch_assoc()):
+                    while ($detalle = pg_fetch_assoc($detalle_resultado)):
                     ?>
                         <tr>
-                            <td><?php echo $detalle['nombre']; ?></td>
+                            <td><?php echo htmlspecialchars($detalle['nombre']); ?></td>
                             <td><?php echo $detalle['cantidad']; ?></td>
-                            <td>$<?php echo number_format($detalle['subtotal'], 2); ?> MXN</td>
                         </tr>
                     <?php endwhile; ?>
                 </table>

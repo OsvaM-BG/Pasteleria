@@ -1,9 +1,15 @@
 <?php
 session_start();
-$conexion = new mysqli("localhost", "root", "", "pasteleria");
 
-if ($conexion->connect_error) {
-    die("Error en la conexión: " . $conexion->connect_error);
+// Conexión a PostgreSQL con variables de entorno
+$conn = pg_connect("host=" . getenv("DB_HOST") . 
+                   " dbname=" . getenv("DB_NAME") . 
+                   " user=" . getenv("DB_USER") . 
+                   " password=" . getenv("DB_PASS") . 
+                   " port=" . getenv("DB_PORT"));
+
+if (!$conn) {
+    die("Error en la conexión: " . pg_last_error());
 }
 
 // Verificar que hay datos del checkout
@@ -13,25 +19,36 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isset($_SESSION['carrito']) || emp
 }
 
 $nombre_cliente = $_POST['nombre_cliente'];
-$email_cliente = $_POST['email_cliente'];
-$metodo_pago   = $_POST['metodo_pago'];
-$total         = $_POST['total'];
+$email_cliente  = $_POST['email_cliente'];
+$metodo_pago    = $_POST['metodo_pago'];
+$total          = $_POST['total'];
 
 // Insertar pedido
-$stmt = $conexion->prepare("INSERT INTO pedidos (nombre_cliente, email_cliente, metodo_pago, total, fecha) VALUES (?, ?, ?, ?, NOW())");
-$stmt->bind_param("sssd", $nombre_cliente, $email_cliente, $metodo_pago, $total);
-$stmt->execute();
-$pedido_id = $stmt->insert_id;
+$result = pg_query_params($conn, 
+    "INSERT INTO pedidos (cliente_nombre, cliente_email, metodo_pago, fecha) 
+     VALUES ($1, $2, $3, NOW()) RETURNING id", 
+    [$nombre_cliente, $email_cliente, $metodo_pago]);
+
+if (!$result) {
+    die("Error al insertar pedido: " . pg_last_error($conn));
+}
+
+$row = pg_fetch_assoc($result);
+$pedido_id = $row['id'];
 
 // Insertar detalles del pedido
 foreach ($_SESSION['carrito'] as $item) {
     $subtotal = $item['precio'] * $item['cantidad'];
-    $stmt_detalle = $conexion->prepare("INSERT INTO pedido_detalle (pedido_id, producto_id, cantidad, subtotal) VALUES (?, ?, ?, ?)");
-    $stmt_detalle->bind_param("iiid", $pedido_id, $item['id'], $item['cantidad'], $subtotal);
-    $stmt_detalle->execute();
+    $detalle = pg_query_params($conn, 
+        "INSERT INTO pedido_detalle (pedido_id, producto_id, cantidad) 
+         VALUES ($1, $2, $3)", 
+        [$pedido_id, $item['id'], $item['cantidad']]);
+    if (!$detalle) {
+        die("Error al insertar detalle: " . pg_last_error($conn));
+    }
 }
 
-// Guardar los productos para mostrar en la confirmación antes de vaciar carrito
+// Guardar productos comprados para mostrar
 $productos_comprados = $_SESSION['carrito'];
 
 // Vaciar carrito
@@ -98,3 +115,4 @@ $_SESSION['carrito'] = [];
 </footer>
 </body>
 </html>
+

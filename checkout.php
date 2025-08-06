@@ -1,9 +1,15 @@
 <?php
 session_start();
-$conexion = new mysqli("localhost", "root", "", "pasteleria");
 
-if ($conexion->connect_error) {
-    die("Error de conexión: " . $conexion->connect_error);
+// Conexión a PostgreSQL con variables de entorno
+$conn = pg_connect("host=" . getenv("DB_HOST") . 
+                   " dbname=" . getenv("DB_NAME") . 
+                   " user=" . getenv("DB_USER") . 
+                   " password=" . getenv("DB_PASS") . 
+                   " port=" . getenv("DB_PORT"));
+
+if (!$conn) {
+    die("Error de conexión: " . pg_last_error());
 }
 
 // Verificar que el carrito no esté vacío
@@ -87,11 +93,7 @@ foreach ($_SESSION['carrito'] as $item) {
         // Mostrar campos de tarjeta solo si elige "Tarjeta"
         document.getElementById('metodo_pago').addEventListener('change', function() {
             var datosTarjeta = document.getElementById('datos_tarjeta');
-            if (this.value === 'Tarjeta') {
-                datosTarjeta.style.display = 'block';
-            } else {
-                datosTarjeta.style.display = 'none';
-            }
+            datosTarjeta.style.display = this.value === 'Tarjeta' ? 'block' : 'none';
         });
     </script>
 </body>

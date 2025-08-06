@@ -1,24 +1,12 @@
 <?php
 session_start();
+require 'db.php';
 
-// Conexión a PostgreSQL con variables de entorno
-$conn = pg_connect("host=" . getenv("DB_HOST") . 
-                   " dbname=" . getenv("DB_NAME") . 
-                   " user=" . getenv("DB_USER") . 
-                   " password=" . getenv("DB_PASS") . 
-                   " port=" . getenv("DB_PORT"));
-
-if (!$conn) {
-    die("Error de conexión: " . pg_last_error());
-}
-
-// Verificar que el carrito no esté vacío
 if (!isset($_SESSION['carrito']) || empty($_SESSION['carrito'])) {
     header("Location: carrito.php");
     exit;
 }
 
-// Calcular total
 $total = 0;
 foreach ($_SESSION['carrito'] as $item) {
     $total += $item['precio'] * $item['cantidad'];
@@ -98,3 +86,4 @@ foreach ($_SESSION['carrito'] as $item) {
     </script>
 </body>
 </html>
+

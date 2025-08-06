@@ -1,8 +1,15 @@
 <?php
 session_start();
-$conexion = new mysqli("localhost", "root", "", "pasteleria");
-if ($conexion->connect_error) {
-    die("Error de conexión: " . $conexion->connect_error);
+
+// Conexión a PostgreSQL con variables de entorno
+$conn = pg_connect("host=" . getenv("DB_HOST") . 
+                   " dbname=" . getenv("DB_NAME") . 
+                   " user=" . getenv("DB_USER") . 
+                   " password=" . getenv("DB_PASS") . 
+                   " port=" . getenv("DB_PORT"));
+
+if (!$conn) {
+    die("Error de conexión: " . pg_last_error());
 }
 
 // Inicializar carrito
@@ -12,42 +19,41 @@ if (!isset($_SESSION['carrito'])) {
 
 // Agregar producto si viene de menu.html
 if (isset($_POST['producto_id']) && !isset($_POST['eliminar'])) {
-    $producto_id = $_POST['producto_id'];
-    $resultado = $conexion->query("SELECT * FROM productos WHERE id = $producto_id");
-    $producto = $resultado->fetch_assoc();
+    $producto_id = (int)$_POST['producto_id'];
+    $resultado = pg_query_params($conn, "SELECT * FROM productos WHERE id = $1", [$producto_id]);
 
-    $existe = false;
-    foreach ($_SESSION['carrito'] as &$item) {
-        if ($item['id'] == $producto_id) {
-            $item['cantidad']++;
-            $existe = true;
-            break;
+    if ($producto = pg_fetch_assoc($resultado)) {
+        $existe = false;
+        foreach ($_SESSION['carrito'] as &$item) {
+            if ($item['id'] == $producto_id) {
+                $item['cantidad']++;
+                $existe = true;
+                break;
+            }
         }
-    }
 
-    if (!$existe) {
-        $_SESSION['carrito'][] = [
-            "id" => $producto['id'],
-            "nombre" => $producto['nombre'],
-            "precio" => $producto['precio'],
-            "cantidad" => 1
-        ];
+        if (!$existe) {
+            $_SESSION['carrito'][] = [
+                "id" => $producto['id'],
+                "nombre" => $producto['nombre'],
+                "precio" => $producto['precio'],
+                "cantidad" => 1
+            ];
+        }
     }
 }
 
 // Eliminar producto
 if (isset($_POST['eliminar'])) {
-    $id_eliminar = $_POST['eliminar'];
+    $id_eliminar = (int)$_POST['eliminar'];
     foreach ($_SESSION['carrito'] as $key => $item) {
         if ($item['id'] == $id_eliminar) {
             unset($_SESSION['carrito'][$key]);
-            // Reordenar array para evitar saltos en índices
-            $_SESSION['carrito'] = array_values($_SESSION['carrito']);
+            $_SESSION['carrito'] = array_values($_SESSION['carrito']); // Reordenar
             break;
         }
     }
 }
-
 ?>
 <!DOCTYPE html>
 <html lang="es">

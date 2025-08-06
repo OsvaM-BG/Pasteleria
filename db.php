@@ -1,13 +1,17 @@
 <?php
-// db.php - conexión PDO a PostgreSQL en Railway
+$host = getenv("PGHOST");
+$db   = getenv("PGDATABASE");
+$user = getenv("PGUSER");
+$pass = getenv("PGPASSWORD");
+$port = getenv("PGPORT");
+
+$dsn = "pgsql:host=$host;port=$port;dbname=$db";
+
 try {
-    $dsn = "pgsql:host=" . getenv("DB_HOST") .
-           ";port=" . getenv("DB_PORT") .
-           ";dbname=" . getenv("DB_NAME");
-    $pdo = new PDO($dsn, getenv("DB_USER"), getenv("DB_PASS"), [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+    $pdo = new PDO($dsn, $user, $pass, [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
     ]);
 } catch (PDOException $e) {
     die("Error de conexión: " . $e->getMessage());
 }
+?>
